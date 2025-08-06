@@ -304,8 +304,8 @@ function App() {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gold/10 dark:bg-violet-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
       </div>
       <div className="relative z-10 container mx-auto px-4 py-8">
-        <header className="mb-12 flex justify-between items-center">
-          <nav className="flex space-x-4">
+        <header className="mb-12 flex flex-col items-center gap-4 md:flex-row md:justify-between md:items-center md:gap-0">
+          <nav className="flex flex-wrap justify-center gap-2">
             {tabs.map(tab => (
               <TabButton
                 key={tab.id}
@@ -315,7 +315,9 @@ function App() {
               />
             ))}
           </nav>
-          <ThemeToggle />
+          <div className="self-center">
+            <ThemeToggle />
+          </div>
         </header>
         {renderContent()}
       </div>
