@@ -8,9 +8,11 @@ import {
   Github,
   Gamepad2,
   Zap,
-  Star,
-  ChevronRight
+  Star
 } from 'lucide-react';
+import ThemeToggle from './components/ThemeToggle';
+import ProjectCard from './components/ProjectCard';
+import Timeline from './components/Timeline';
 import emailjs from '@emailjs/browser';
 
 function App() {
@@ -18,19 +20,26 @@ function App() {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', subject: '' });
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [projectFilter, setProjectFilter] = useState<'ALL' | 'TERMINÉ' | 'EN COURS'>('ALL');
 
   // EmailJS IDs
   const SERVICE_ID  = import.meta.env.VITE_EMAILJS_SERVICE_ID!;
   const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID!;
   const PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY!;
 
-  const tabs = [
+  interface Tab {
+    id: 'profile' | 'skills' | 'experience' | 'projects' | 'contact';
+    label: string;
+    icon: React.ComponentType<{ size?: number }>;
+  }
+
+  const tabs: Tab[] = [
     { id: 'profile',     label: 'PROFIL',       icon: User      },
     { id: 'skills',      label: 'COMPÉTENCES',  icon: Code2     },
     { id: 'experience',  label: 'EXPÉRIENCE',   icon: Briefcase },
     { id: 'projects',    label: 'RÉALISATIONS', icon: Trophy    },
     { id: 'contact',     label: 'CONTACT',      icon: Mail      }
-  ] as const;
+  ];
 
   const skills = {
     frontend: ['React', 'Next.js', 'React Native'],
@@ -60,8 +69,14 @@ function App() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValidEmail(formData.email)) {
+      setSubmitStatus('error');
+      return;
+    }
     setSubmitStatus('sending');
     emailjs
       .send(
@@ -89,7 +104,7 @@ function App() {
       });
   };
 
-  const TabButton = ({ tab, isActive, onClick }: any) => {
+  const TabButton = ({ tab, isActive, onClick }: { tab: Tab; isActive: boolean; onClick: () => void }) => {
     const Icon = tab.icon;
     return (
       <button
@@ -98,7 +113,7 @@ function App() {
           relative group px-6 py-4 font-bold text-sm tracking-wider transition-all duration-300
           ${isActive
             ? 'bg-gradient-to-r from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/50'
-            : 'bg-gray-900 text-gray-400 hover:text-purple-300 hover:bg-gray-800'}
+            : 'bg-gray-200 text-gray-700 hover:text-purple-700 hover:bg-gray-300 dark:bg-gray-900 dark:text-gray-400 dark:hover:text-purple-300 dark:hover:bg-gray-800'}
           border border-purple-500/30 hover:border-purple-400/50
           transform hover:scale-105 active:scale-95
         `}
@@ -142,7 +157,7 @@ function App() {
               <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-purple-600 to-violet-800 rounded-full flex items-center justify-center shadow-xl shadow-purple-500/30">
                 <User size={60} className="text-white" />
               </div>
-              <h2 className="text-3xl font-bold text-white mb-2">Joachim Cishugi</h2>
+              <h2 className="text-3xl font-bold mb-2">Joachim Cishugi</h2>
               <p className="text-purple-300 text-xl mb-4">Développeur Full Stack Junior</p>
               <div className="flex justify-center space-x-4">
                 <div className="bg-purple-600/20 px-4 py-2 rounded-lg border border-purple-500/30">
@@ -151,6 +166,15 @@ function App() {
                 <div className="bg-purple-600/20 px-4 py-2 rounded-lg border border-purple-500/30">
                   <span className="text-purple-300">5 projets</span>
                 </div>
+              </div>
+              <div className="mt-6">
+                <a
+                  href="/cv.pdf"
+                  download
+                  className="inline-block bg-gold text-black font-bold px-6 py-2 rounded-lg hover:bg-yellow-400 transition-colors"
+                >
+                  Télécharger le CV
+                </a>
               </div>
             </div>
             <div className="bg-gray-900/50 p-6 rounded-lg border border-purple-500/30">
@@ -206,79 +230,55 @@ function App() {
         );
 
       case 'experience':
-        return (
-          <div className="space-y-6">
-            {experiences.map((exp, i) => (
-              <div key={i} className="bg-gray-900/50 p-6 rounded-lg border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-white mb-1">{exp.title}</h3>
-                    <p className="text-purple-300 font-medium">{exp.company}</p>
-                    <p className="text-gray-400 text-sm">{exp.period}</p>
-                  </div>
-                  <div className="bg-purple-600/20 px-3 py-1 rounded-full border border-purple-500/30">  
-                    <span className="text-purple-300 text-sm">LVL {exp.level}</span>
-                  </div>
-                </div>
-                <p className="text-gray-300 mb-4">{exp.description}</p>
-                <div className="w-full bg-gray-800 rounded-full h-2">
-                  <div
-                    className="h-full bg-gradient-to-r from-purple-500 to-violet-400 rounded-full transition-all duration-1000 ease-out"
-                    style={{ width: `${exp.level}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        );
+        return <Timeline experiences={experiences} />;
 
-      case 'projects':
+      case 'projects': {
+        const filtered = projectFilter === 'ALL' ? projects : projects.filter(p => p.status === projectFilter);
         return (
-          <div className="grid md:grid-cols-2 gap-6">
-            {projects.map((project, i) => (
-              <div key={i} className="bg-gray-900/50 p-6 rounded-lg border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 group hover:scale-105">
-                <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-xl font-bold text-white group-hover:text-purple-300 transition-colors">{project.title}</h3>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    project.status === 'TERMINÉ'
-                      ? 'bg-green-600/20 text-green-300 border border-green-500/30'
-                      : 'bg-yellow-600/20 text-yellow-300 border border-yellow-500/30'
-                  }`}>
-                    {project.status}
-                  </span>
-                </div>
-                <p className="text-purple-300 text-sm mb-3 font-medium">{project.tech}</p>
-                <p className="text-gray-300 mb-4">{project.description}</p>
-                <button className="flex items-center text-purple-400 hover:text-purple-300 transition-colors font-medium">
-                  Voir plus <ChevronRight size={16} className="ml-1" />
-                </button>
-              </div>
-            ))}
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <label className="text-sm font-medium text-purple-300">Filtrer par statut :</label>
+              <select
+                value={projectFilter}
+                onChange={e => setProjectFilter(e.target.value as 'ALL' | 'TERMINÉ' | 'EN COURS')}
+                className="bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 px-3 py-2 rounded-lg border border-purple-500/30"
+              >
+                <option value="ALL">Tous</option>
+                <option value="TERMINÉ">Terminé</option>
+                <option value="EN COURS">En cours</option>
+              </select>
+            </div>
+            <div className="grid md:grid-cols-2 gap-6">
+              {filtered.map((project, i) => (
+                <ProjectCard key={i} {...project} />
+              ))}
+            </div>
           </div>
         );
+      }
 
       case 'contact':
         return (
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-white mb-4">CONTACTEZ-MOI</h2>
-              <p className="text-gray-300">Prêt pour une nouvelle mission ?</p>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">CONTACTEZ-MOI</h2>
+              <p className="text-gray-700 dark:text-gray-300">Prêt pour une nouvelle mission ?</p>
             </div>
             <div className="grid md:grid-cols-2 gap-6 mb-8">
-              <a href="mailto:cishugijoachim@gmail.com" className="bg-gray-900/50 p-6 rounded-lg border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 group">
+              <a href="mailto:cishugijoachim@gmail.com" className="bg-gray-100 dark:bg-gray-900/50 p-6 rounded-lg border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 group">
                 <Mail className="text-purple-400 mb-3 group-hover:scale-110 transition-transform" size={24} />
-                <h3 className="text-white font-bold mb-2">Email</h3>
-                <p className="text-gray-300">cishugijoachim@gmail.com</p>
+                <h3 className="text-gray-900 dark:text-white font-bold mb-2">Email</h3>
+                <p className="text-gray-700 dark:text-gray-300">cishugijoachim@gmail.com</p>
               </a>
-              <a href="https://github.com/Emynado01" className="bg-gray-900/50 p-6 rounded-lg border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 group">
+              <a href="https://github.com/Emynado01" className="bg-gray-100 dark:bg-gray-900/50 p-6 rounded-lg border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 group">
                 <Github className="text-purple-400 mb-3 group-hover:scale-110 transition-transform" size={24} />
-                <h3 className="text-white font-bold mb-2">GitHub</h3>
-                <p className="text-gray-300">@Emynado01</p>
+                <h3 className="text-gray-900 dark:text-white font-bold mb-2">GitHub</h3>
+                <p className="text-gray-700 dark:text-gray-300">@Emynado01</p>
               </a>
             </div>
-            <div className="bg-gray-900/50 p-8 rounded-lg border border-purple-500/30 text-center">
+            <div className="bg-gray-100 dark:bg-gray-900/50 p-8 rounded-lg border border-purple-500/30 text-center">
               <h3 className="text-xl font-bold text-purple-400 mb-4">DISPONIBLE POUR MISSIONS</h3>
-              <p className="text-gray-300 mb-6">
+              <p className="text-gray-700 dark:text-gray-300 mb-6">
                 Ouvert aux opportunités de collaboration et aux offres d'emploi
               </p>
               <button
@@ -297,17 +297,15 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
-      {/* background effects here */}
-      +   {/* Background Effects */}
-   <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 to-black" />
-   <div className="absolute inset-0">
-    <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse" />
-    <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
-  </div>
+    <div className="min-h-screen bg-white text-black dark:bg-black dark:text-white relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-electric/20 to-white dark:from-purple-900/20 dark:to-black" />
+      <div className="absolute inset-0">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-electric/10 dark:bg-purple-600/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gold/10 dark:bg-violet-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
+      </div>
       <div className="relative z-10 container mx-auto px-4 py-8">
-        <header className="mb-12">
-          <nav className="flex justify-center space-x-4">
+        <header className="mb-12 flex flex-col items-center gap-4 md:flex-row md:justify-between md:items-center md:gap-0">
+          <nav className="flex flex-wrap justify-center gap-2">
             {tabs.map(tab => (
               <TabButton
                 key={tab.id}
@@ -317,14 +315,17 @@ function App() {
               />
             ))}
           </nav>
+          <div className="self-center">
+            <ThemeToggle />
+          </div>
         </header>
         {renderContent()}
       </div>
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-gray-900/80 p-8 rounded-xl border border-purple-500/30 w-full max-w-md">
-            <h3 className="text-xl font-bold text-white mb-4">Lancer une mission</h3>
+          <div className="bg-gray-100 dark:bg-gray-900/80 p-8 rounded-xl border border-purple-500/30 w-full max-w-md">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Lancer une mission</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-purple-300 mb-1">Nom</label>
@@ -333,7 +334,7 @@ function App() {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  className="w-full bg-gray-800 text-white px-3 py-2 rounded-lg border border-purple-500/30 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  className="w-full bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 rounded-lg border border-purple-500/30 focus:outline-none focus:ring-2 focus:ring-purple-600"
                   required
                 />
               </div>
@@ -344,7 +345,7 @@ function App() {
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full bg-gray-800 text-white px-3 py-2 rounded-lg border border-purple-500/30 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  className="w-full bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 rounded-lg border border-purple-500/30 focus:outline-none focus:ring-2 focus:ring-purple-600"
                   required
                 />
               </div>
@@ -355,7 +356,7 @@ function App() {
                   name="subject"
                   value={formData.subject}
                   onChange={handleInputChange}
-                  className="w-full bg-gray-800 text-white px-3 py-2 rounded-lg border border-purple-500/30 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  className="w-full bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 rounded-lg border border-purple-500/30 focus:outline-none focus:ring-2 focus:ring-purple-600"
                   required
                 />
               </div>
@@ -363,7 +364,7 @@ function App() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600"
+                  className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
                 >
                   Annuler
                 </button>
